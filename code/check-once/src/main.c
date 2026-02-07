@@ -1,35 +1,11 @@
+#include "../include/clock.h"
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <threads.h>
 
-#include "../include/clock.h"
-
 // to test we will make the threads make changes to an array
-
-int *data;
-int *orecs;
-uint64_t *tx;
-
-void init_values(int data_size, int num_threads) {
-
-  data = calloc(0, sizeof(int) * data_size);
-  orecs = calloc(0, sizeof(uint64_t) * data_size);
-  tx = calloc(0, num_threads * sizeof(uint64_t));
-}
-
-/*
- *in this transation we do not need to lock, jis to read
- * */
-void read_only_transation() {
-  // start transation
-
-  // get start time
-  uint64_t start = read_timestamp();
-}
-
-// thread
 static void *main_thread(void *thread_id) {
   long tid = (long)thread_id;
   printf("%ld\n", tid);
@@ -37,7 +13,6 @@ static void *main_thread(void *thread_id) {
     getNext_timestamp();
   }
 
-  tx[tid * sizeof(uint64_t)] = 10;
   return NULL;
 }
 
@@ -52,9 +27,6 @@ int main(int argc, char *argv[]) {
 
   int data_size = atoi(argv[1]);
   int num_threads = atoi(argv[2]);
-
-  // initiate values
-  init_values(data_size, num_threads);
 
   pthread_t th[num_threads];
   int i;
