@@ -1,4 +1,3 @@
-
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -7,19 +6,17 @@
 
 #include "../include/clock.h"
 
-enum { NUM_THREADS = 10, NUM_ITERS = 1000000 };
-
 // to test we will make the threads make changes to an array
 
 int *data;
 int *orecs;
 uint64_t *tx;
 
-void init_values(int data_size) {
+void init_values(int data_size, int num_threads) {
 
   data = calloc(0, sizeof(int) * data_size);
   orecs = calloc(0, sizeof(uint64_t) * data_size);
-  tx = calloc(0, NUM_THREADS);
+  tx = calloc(0, num_threads * sizeof(uint64_t));
 }
 
 /*
@@ -36,9 +33,11 @@ void read_only_transation() {
 static void *main_thread(void *thread_id) {
   long tid = (long)thread_id;
   printf("%ld\n", tid);
-  for (int i = 0; i < NUM_ITERS; i++) {
+  for (int i = 0; i < 10; i++) {
     getNext_timestamp();
   }
+
+  tx[tid * sizeof(uint64_t)] = 10;
   return NULL;
 }
 
@@ -55,7 +54,7 @@ int main(int argc, char *argv[]) {
   int num_threads = atoi(argv[2]);
 
   // initiate values
-  init_values(data_size);
+  init_values(data_size, num_threads);
 
   pthread_t th[num_threads];
   int i;
@@ -72,7 +71,6 @@ int main(int argc, char *argv[]) {
 
   uint64_t final = read_timestamp();
   printf("final value = %llu (expected %llu)\n", (unsigned long long) final,
-         (unsigned long long)NUM_THREADS * (unsigned long long)NUM_ITERS);
-
+         (unsigned long long)num_threads * (unsigned long long)num_threads);
   return EXIT_SUCCESS;
 }
