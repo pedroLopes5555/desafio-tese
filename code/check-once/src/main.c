@@ -1,4 +1,5 @@
 #include "../include/clock.h"
+#include "../include/orec.h"
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -27,6 +28,8 @@ int main(int argc, char *argv[]) {
 
   int data_size = atoi(argv[1]);
   int num_threads = atoi(argv[2]);
+
+  orecs_init(data_size);
 
   pthread_t th[num_threads];
   int i;
