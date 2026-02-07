@@ -1,0 +1,4 @@
+
+gcc -O2 -Iinclude src/main.c src/clock_rdtscp.c -o test -pthread
+# OR
+gcc -O2 -Iinclude src/main.c src/clock_shared.c -o test -pthread

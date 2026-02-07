@@ -1,0 +1,1 @@
+# __Core__ -> is it possible to replace shared memory based STM clock with rdtscp
