@@ -28,12 +28,16 @@ static void *main_thread(void *thread_id) {
 
   for (int i = 0; i < 10; i++) {
     int v = tx_read_int(&data[i % 10]);
-    printf("read data[%d] = %d\n", i % 10, v);
     if (v == -1) {
       printf("ABORT (locked/too new)\n");
       break;
     }
   }
+
+  tx_write(&data[1], 10);
+
+  tx_commit();
+
   return NULL;
 }
 
@@ -54,13 +58,6 @@ int main(int argc, char *argv[]) {
   orecs_init(data_size, sizeof(int),
              &data[0]); // 100% sure this is not the best way to do this just
                         // praying for this to work praying for this to work
-
-  for (int i = 0; i < data_size; i++) {
-    printf("for data %d ->", i);
-    printf("data value : %d | ", data[i]);
-    printf("is data locked: %d\n", is_addrs_orec_locked(&data[i]));
-  }
-
   pthread_t th[num_threads];
   int i;
   for (i = 0; i < num_threads; i++) {
@@ -77,6 +74,12 @@ int main(int argc, char *argv[]) {
   uint64_t final = read_timestamp();
   printf("final value = %llu (expected %llu)\n", (unsigned long long) final,
          (unsigned long long)num_threads * (unsigned long long)num_threads);
+
+  for (int i = 0; i < data_size; i++) {
+    printf("for data index %d ->", i);
+    printf("data value : %d | ", data[i]);
+    printf("is data locked: %d\n", is_addrs_orec_locked(&data[i]));
+  }
 
   free(data);
 

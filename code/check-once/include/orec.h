@@ -17,3 +17,5 @@ static uint64_t get_orec_timestamp(uint64_t orec);
 uint64_t get_addrs_timestamp(void *addr);
 
 int is_addrs_orec_locked(void *addr);
+
+int try_aquire_lock(void *addr);

@@ -2,7 +2,16 @@
 #include "../include/orec.h"
 #include "../include/stm_tx.h"
 #include <stdint.h>
+#include <stdio.h>
 #include <sys/types.h>
+
+void tx_begin(void);
+int tx_read_int(void *addr);
+void tx_write(void *addr, int v);
+void aquire_locks(void);
+void abort(void);
+void tx_commit(void);
+
 static _Thread_local stm_tx_t tx; // one tx per thread
 // begin
 void tx_begin() {
@@ -41,4 +50,46 @@ int tx_read_int(void *addr) {
   }
   return 99;
   // Abort();
+}
+
+void tx_write(void *addr, int v) {
+  // TODO -> check if the addres is valid
+  stm_tx_write_t write;
+
+  write.addr = addr;
+  write.value = v;
+
+  tx.writes[tx.w_count] = write;
+
+  tx.w_count++;
+}
+
+void aquire_locks() {
+  // try to aquire_locks of the writes
+
+  for (int i = 0; i < tx.w_count; i++) {
+
+    printf("try to aquire lock of write -> %d", tx.writes[i].value);
+    if (try_aquire_lock(tx.writes[i].addr) != 1) {
+      return; // TODO -> latter abort
+    }
+  }
+}
+
+void abort() {
+  /*ABORT()
+13 for each addr in locks do
+14 orecs[addr].releaseToPrevious()
+15 restartTransaction()*/
+}
+
+void tx_commit() {
+  if (tx.w_count == 0)
+    return;
+
+  aquire_locks();
+  for (int i = 0; i < tx.w_count; i++) {
+    int *addr = (int *)tx.writes[i].addr;
+    *addr = (int)tx.writes[i].value;
+  }
 }

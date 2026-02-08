@@ -2,12 +2,13 @@
 
 #include <stdint.h>
 
+// TODO -> how can i regulate this ?
 #define MAX_WRITES 64
 #define MAX_READS 64
 
 typedef struct {
   void *addr;     /* address to write */
-  uint64_t value; /* value to write */
+  int value;      /* value to write */
   uint64_t *orec; /* pointer to orec / version */
 } stm_tx_write_t;
 

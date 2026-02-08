@@ -1,3 +1,6 @@
+/*
+ *THERE IS A LOT OF BAD CODE AND REDUNDANCY ON THIS FILE * * */
+
 #include <stdatomic.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -8,6 +11,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/types.h>
 /*orec is 64 bits, last bit is the lock bit*/
 /*
 63                0
@@ -60,7 +64,6 @@ void orecs_init(int number_of_orecs, int data_type_size,
   for (size_t i = 0; i < num_orecs; i++) {
     atomic_store(&orecs[i], 0); // unlocked, timestamp = 0
   }
-  atomic_store(&orecs[3], LOCK_BIT);
 
   dt_size = (size_t)data_type_size;
   ft_data_element = first_data_element;
@@ -71,14 +74,12 @@ static uint64_t get_orec_timestamp(uint64_t orec) {
   return orec & ((1ULL << 63) - 1);
 }
 
-int is_addrs_orec_locked(void *addr) {
-
+uint64_t get_orec_by_addrs(void *addr) {
   uintptr_t base = (uintptr_t)ft_data_element;
   uintptr_t a = (uintptr_t)addr;
   uintptr_t end = base + (uintptr_t)(dt_size * num_orecs);
 
   // check for bounds...
-
   if (a < base || a >= end)
     return 0; // TODO-> latter implement error message
 
@@ -87,7 +88,27 @@ int is_addrs_orec_locked(void *addr) {
   size_t idx = (size_t)(diff / dt_size);
 
   uint64_t o = atomic_load(&orecs[idx]);
-  return is_orec_locked(o);
+  return o;
+}
+
+orec_t *get_orec_ptr_by_addrs(void *addr) {
+  uintptr_t base = (uintptr_t)ft_data_element;
+  uintptr_t a = (uintptr_t)addr;
+  uintptr_t end = base + (uintptr_t)(dt_size * num_orecs);
+
+  // bounds check
+  if (a < base || a >= end)
+    return NULL;
+
+  uintptr_t diff = a - base;
+  size_t idx = (size_t)(diff / dt_size);
+
+  return &orecs[idx]; // ✅ pointer to the real atomic orec
+}
+int is_addrs_orec_locked(void *addr) {
+
+  uint64_t orec = get_orec_by_addrs(addr);
+  return is_orec_locked(orec);
 }
 
 uint64_t get_addrs_timestamp(void *addr) {
@@ -106,4 +127,24 @@ uint64_t get_addrs_timestamp(void *addr) {
 
   uint64_t o = atomic_load(&orecs[idx]);
   return get_orec_timestamp(o);
+}
+
+int try_aquire_lock(void *addr) {
+  orec_t *orecp = get_orec_ptr_by_addrs(addr);
+
+  uint64_t loaded = atomic_load_explicit(orecp, memory_order_relaxed);
+
+  // already locked?
+  if ((loaded >> 63) != 0)
+    return 0;
+
+  uint64_t expected = loaded;
+  uint64_t newv = loaded | (1ULL << 63);
+
+  if (atomic_compare_exchange_strong_explicit(
+          orecp, &expected, newv, memory_order_acquire, memory_order_relaxed)) {
+    return 1;
+  }
+
+  return 0;
 }
