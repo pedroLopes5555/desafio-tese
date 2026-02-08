@@ -16,7 +16,14 @@ void tx_begin() {
 }
 
 uint64_t tx_read(void *addr) {
-  // check if it is a write address
 
+  // check if it is a write address
+  for (int i = 0; i < tx.w_count; i++) {
+    if (tx.writes[i].addr == addr)
+      return tx.writes[i].value;
+  }
+
+  // get the value
   uint64_t v = *(uint64_t *)addr;
+  // get the orecs
 }
