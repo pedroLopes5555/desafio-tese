@@ -21,6 +21,7 @@
 */
 
 #define LOCK_BIT (1ULL << 63)
+#define TS_MASK (LOCK_BIT - 1) // low 63 bits
 
 /*
  * shifting to << we can have th MSB
@@ -131,7 +132,8 @@ uint64_t get_addrs_timestamp(void *addr) {
 
 int try_aquire_lock(void *addr) {
   orec_t *orecp = get_orec_ptr_by_addrs(addr);
-
+  if (!orecp)
+    return 0; // <--- prevents segfault
   uint64_t loaded = atomic_load_explicit(orecp, memory_order_relaxed);
 
   // already locked?
@@ -147,4 +149,14 @@ int try_aquire_lock(void *addr) {
   }
 
   return 0;
+}
+
+void release_lock(uint64_t end, void *addr) {
+  orec_t *orecp = get_orec_ptr_by_addrs(addr);
+
+  printf("\n\nrelease lock: addr=%p value=%llu\n", addr,
+         (unsigned long long)end);
+
+  uint64_t newvalue = (end & TS_MASK);
+  atomic_store_explicit(orecp, newvalue, memory_order_release);
 }

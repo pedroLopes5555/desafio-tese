@@ -58,6 +58,10 @@ int main(int argc, char *argv[]) {
   orecs_init(data_size, sizeof(int),
              &data[0]); // 100% sure this is not the best way to do this just
                         // praying for this to work praying for this to work
+
+  printf("CHEGOY AQUI\n");
+  fflush(stdout);
+
   pthread_t th[num_threads];
   int i;
   for (i = 0; i < num_threads; i++) {

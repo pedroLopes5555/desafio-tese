@@ -4,13 +4,16 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/types.h>
-
-void tx_begin(void);
+#include <unistd.h>
+void ix_begin(void);
 int tx_read_int(void *addr);
 void tx_write(void *addr, int v);
 void aquire_locks(void);
 void abort(void);
 void tx_commit(void);
+void write_back();
+void validate();
+void release_locks();
 
 static _Thread_local stm_tx_t tx; // one tx per thread
 // begin
@@ -55,9 +58,9 @@ int tx_read_int(void *addr) {
 void tx_write(void *addr, int v) {
   // TODO -> check if the addres is valid
   stm_tx_write_t write;
-
+  printf("tx_write: w_count=%d addr=%p value=%d\n", tx.w_count, addr, v);
   write.addr = addr;
-  write.value = v;
+  write.value = (uint64_t)v;
 
   tx.writes[tx.w_count] = write;
 
@@ -88,8 +91,37 @@ void tx_commit() {
     return;
 
   aquire_locks();
+  validate();
+  write_back();
+  tx.end_timestamp = read_timestamp();
+  release_locks();
+}
+
+void write_back() {
   for (int i = 0; i < tx.w_count; i++) {
     int *addr = (int *)tx.writes[i].addr;
     *addr = (int)tx.writes[i].value;
+    printf("write_back: w_count=%d addr=%p value=%d\n", tx.w_count,
+           tx.writes[i].addr, (int)tx.writes[i].value);
+  }
+}
+
+void validate() {
+
+  for (int i = 0; i < tx.w_count; i++) {
+    uint64_t ts = get_addrs_timestamp(tx.writes[i].addr);
+
+    if (ts >= tx.start_timestamp) {
+      break; // TODO -> abort
+    }
+  }
+}
+
+void release_locks() {
+  for (int i = 0; i < tx.w_count; i++) {
+    printf("\n\nrelease locks: w_count=%d addr=%p value=%d\n", tx.w_count,
+           tx.writes[i].addr, (int)tx.writes[i].value);
+    // sleep(15);
+    release_lock(tx.end_timestamp, tx.writes[i].addr);
   }
 }
