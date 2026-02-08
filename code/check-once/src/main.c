@@ -1,11 +1,11 @@
 #include "../include/clock.h"
 #include "../include/orec.h"
+#include "../include/tx.h"
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <threads.h>
-
 #define VALUE_SIZE sizeof(int);
 
 // for this example we will assume that data is alwais an array
@@ -21,14 +21,19 @@ void ini_data(unsigned long size) {
   }
 }
 
-// to test we will make the threads make changes to an array
 static void *main_thread(void *thread_id) {
-  long tid = (long)thread_id;
-  printf("%ld\n", tid);
-  for (int i = 0; i < 10; i++) {
-    getNext_timestamp();
-  }
+  (void)thread_id;
 
+  tx_begin();
+
+  for (int i = 0; i < 10; i++) {
+    int v = tx_read_int(&data[i % 10]);
+    printf("read data[%d] = %d\n", i % 10, v);
+    if (v == -1) {
+      printf("ABORT (locked/too new)\n");
+      break;
+    }
+  }
   return NULL;
 }
 
@@ -44,11 +49,12 @@ int main(int argc, char *argv[]) {
   int data_size = atoi(argv[1]);
   int num_threads = atoi(argv[2]);
 
+  // initilization
   ini_data(data_size);
-
   orecs_init(data_size, sizeof(int),
              &data[0]); // 100% sure this is not the best way to do this just
                         // praying for this to work praying for this to work
+
   for (int i = 0; i < data_size; i++) {
     printf("for data %d ->", i);
     printf("data value : %d | ", data[i]);
@@ -58,7 +64,7 @@ int main(int argc, char *argv[]) {
   pthread_t th[num_threads];
   int i;
   for (i = 0; i < num_threads; i++) {
-    if (pthread_create(&th[i], NULL, main_thread, (void *)i) != 0) {
+    if (pthread_create(&th[i], NULL, main_thread, (void *)(intptr_t)i)) {
       perror("pthread_create");
       return 1;
     }

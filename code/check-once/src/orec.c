@@ -56,12 +56,11 @@ void orecs_init(int number_of_orecs, int data_type_size,
   num_orecs = (size_t)number_of_orecs;
 
   orecs = malloc(num_orecs * sizeof(orec_t));
-  if (!orecs)
-    abort();
 
   for (size_t i = 0; i < num_orecs; i++) {
     atomic_store(&orecs[i], 0); // unlocked, timestamp = 0
   }
+  atomic_store(&orecs[3], LOCK_BIT);
 
   dt_size = (size_t)data_type_size;
   ft_data_element = first_data_element;
@@ -89,4 +88,22 @@ int is_addrs_orec_locked(void *addr) {
 
   uint64_t o = atomic_load(&orecs[idx]);
   return is_orec_locked(o);
+}
+
+uint64_t get_addrs_timestamp(void *addr) {
+  uintptr_t base = (uintptr_t)ft_data_element;
+  uintptr_t a = (uintptr_t)addr;
+  uintptr_t end = base + (uintptr_t)(dt_size * num_orecs);
+
+  // check for bounds...
+
+  if (a < base || a >= end)
+    return 0; // TODO-> latter implement error message
+
+  uintptr_t diff = a - base;
+
+  size_t idx = (size_t)(diff / dt_size);
+
+  uint64_t o = atomic_load(&orecs[idx]);
+  return get_orec_timestamp(o);
 }
