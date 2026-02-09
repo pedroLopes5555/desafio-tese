@@ -5,11 +5,12 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <unistd.h>
-void ix_begin(void);
+
+void tx_begin(void);
 int tx_read_int(void *addr);
 void tx_write(void *addr, int v);
-void aquire_locks(void);
-void abort(void);
+int aquire_locks(void);
+void tx_abort(void);
 void tx_commit(void);
 void write_back();
 void validate();
@@ -18,8 +19,10 @@ void release_locks();
 static _Thread_local stm_tx_t tx; // one tx per thread
 // begin
 void tx_begin() {
-  // get start timestamp
-  // clear tx
+  if (setjmp(tx.env) != 0) { // in theroy, longjmp will go to here
+    printf("tx restart\n");
+  }
+
   tx.start_timestamp = read_timestamp();
   tx.end_timestamp = 0;
   tx.r_count = 0;
@@ -28,32 +31,26 @@ void tx_begin() {
 }
 
 int tx_read_int(void *addr) {
-
-  // check if it is a write address
   for (int i = 0; i < tx.w_count; i++) {
     if (tx.writes[i].addr == addr)
-      return tx.writes[i].value;
+      return (int)tx.writes[i].value;
   }
 
-  // get the value
-  int v = *(uint64_t *)addr;
-  // get the orecs
+  int v = *(int *)addr;
+
   uint64_t ts = get_addrs_timestamp(addr);
-  int is_lockd = is_addrs_orec_locked(addr);
+  int locked = is_addrs_orec_locked(addr);
 
-  // check timestamps:
-  if (ts <= tx.start_timestamp && is_lockd != 1) {
-    // add to reads
-    // check for max reads
-    tx.r_count++;
-    stm_tx_read_t read;
-    read.addr = addr;
-    tx.reads[tx.r_count] = read;
-
-    return v;
+  if (locked || ts > tx.start_timestamp) {
+    tx_abort();
   }
-  return 0;
-  // Abort();
+
+  stm_tx_read_t read;
+  read.addr = addr;
+  tx.reads[tx.r_count] = read;
+  tx.r_count++;
+
+  return v;
 }
 
 void tx_write(void *addr, int v) {
@@ -68,36 +65,36 @@ void tx_write(void *addr, int v) {
   tx.w_count++;
 }
 
-void aquire_locks() {
-  // try to aquire_locks of the writes
-
+int aquire_locks(void) {
   for (int i = 0; i < tx.w_count; i++) {
+    void *addr = tx.writes[i].addr;
 
-    printf("try to aquire lock of write -> %d", tx.writes[i].value);
-    if (try_aquire_lock(tx.writes[i].addr) == 0) {
-      tx.locked_addrs[tx.lock_count] = tx.writes[i].addr;
-      tx.lock_count++;
-    } else {
-
-      return; // TODO -> latter abort
+    if (try_aquire_lock(addr) != 1) {
+      tx_abort();
     }
+
+    tx.locked_addrs[tx.lock_count++] = addr;
   }
+  return 1;
 }
 
-void abort() {
+void tx_abort() {
   for (int i = 0; i < tx.lock_count; i++) {
     release_lock_no_end(tx.locked_addrs[i]);
   }
+
+  longjmp(tx.env, 1); // jump back to begin
 }
 
 void tx_commit() {
+
   if (tx.w_count == 0)
     return;
-
   aquire_locks();
   validate();
   write_back();
   tx.end_timestamp = read_timestamp();
+
   release_locks();
 }
 
@@ -112,19 +109,18 @@ void write_back() {
 
 void validate() {
 
-  for (int i = 0; i < tx.w_count; i++) {
-    uint64_t ts = get_addrs_timestamp(tx.writes[i].addr);
+  for (int i = 0; i < tx.r_count; i++) {
+    uint64_t ts = get_addrs_timestamp(tx.reads[i].addr);
 
-    if (ts >= tx.start_timestamp) {
+    if (ts > tx.start_timestamp) {
       printf("Abort");
-      break; // TODO -> abort
+      tx_abort();
     }
   }
 }
 
 void release_locks() {
   for (int i = 0; i < tx.w_count; i++) {
-    // sleep(15);
     release_lock(tx.end_timestamp, tx.writes[i].addr);
   }
 }

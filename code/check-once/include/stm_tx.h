@@ -1,5 +1,6 @@
 #define STM_TX_H
 
+#include <setjmp.h>
 #include <stdint.h>
 
 // TODO -> how can i regulate this ?
@@ -34,4 +35,5 @@ typedef struct {
   void *locked_addrs[MAX_WRITES];
   int lock_count;
 
+  jmp_buf env; // used to abort
 } stm_tx_t;

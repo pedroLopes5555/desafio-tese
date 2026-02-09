@@ -23,3 +23,5 @@ int try_aquire_lock(void *addr);
 void release_lock(uint64_t end, void *addr);
 
 void release_lock_no_end(void *addr);
+
+void orecs_destroy(void);

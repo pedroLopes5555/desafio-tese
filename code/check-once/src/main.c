@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <threads.h>
+#include <unistd.h>
 #define VALUE_SIZE sizeof(int);
 
 // for this example we will assume that data is alwais an array
@@ -24,12 +25,23 @@ void ini_data(unsigned long size) {
 static void *main_thread(void *thread_id) {
   (void)thread_id;
 
+  for (int i = 0; i < 10; i++) {
+    for (;;) {
+      tx_begin();
+
+      int v = tx_read_int(&data[1]);
+      tx_write(&data[1], v + 1);
+
+      tx_commit(); // if it aborts, longjmp goes back into begin
+      break;       // only reached on succe
+    }
+  }
+  // optional: read final value (also transactional)
   tx_begin();
-
-  tx_write(&data[1], 100);
-
+  int a = tx_read_int(&data[1]);
   tx_commit();
 
+  printf("after writing: %d\n", a);
   return NULL;
 }
 
@@ -78,6 +90,6 @@ int main(int argc, char *argv[]) {
   }
 
   free(data);
-
+  orecs_destroy();
   return EXIT_SUCCESS;
 }

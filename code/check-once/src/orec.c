@@ -55,7 +55,11 @@ static void *ft_data_element;
  *on the main funtion i should do orecs_init
  * */
 int is_orec_locked(uint64_t orec) { return (orec & LOCK_BIT) != 0; }
-
+void orecs_destroy(void) {
+  free(orecs);
+  orecs = NULL;
+  num_orecs = 0;
+}
 void orecs_init(int number_of_orecs, int data_type_size,
                 void *first_data_element) {
   num_orecs = (size_t)number_of_orecs;
@@ -66,8 +70,24 @@ void orecs_init(int number_of_orecs, int data_type_size,
     atomic_store(&orecs[i], 0); // unlocked, timestamp = 0
   }
 
+  // TEST ONLY: force orec[1] to start locked (MSB = 1, timestamp = 0)
+  // atomic_store_explicit(&orecs[1], (1ULL << 63), memory_order_relaxed);
+
   dt_size = (size_t)data_type_size;
   ft_data_element = first_data_element;
+
+  /*printf("orecs_init: locked orecs:\n");
+  forr (size_t i = 0; i < num_orecs; i++) {
+    uint64_t o = atomic_load_explicit(&orecs[i], memory_order_relaxed);
+
+    if (is_orec_locked(o)) {
+      uint64_t ts = o & ((1ULL << 63) - 1);
+      printf("  orec[%zu] LOCKED (ts=%llu)\n", i, (unsigned long long)ts);
+    } else {
+      printf("  orec[%zu] unlocked (ts=%llu)\n", i,
+             (unsigned long long)(o & ((1ULL << 63) - 1)));
+    }
+  }*/
 }
 
 static uint64_t get_orec_timestamp(uint64_t orec) {
@@ -133,11 +153,10 @@ uint64_t get_addrs_timestamp(void *addr) {
 int try_aquire_lock(void *addr) {
   orec_t *orecp = get_orec_ptr_by_addrs(addr);
   if (!orecp)
-    return 0; // <--- prevents segfault
+    return 0;
   uint64_t loaded = atomic_load_explicit(orecp, memory_order_relaxed);
 
-  // already locked?
-  if ((loaded >> 63) != 0)
+  if (is_orec_locked(loaded) == 1)
     return 0;
 
   uint64_t expected = loaded;
