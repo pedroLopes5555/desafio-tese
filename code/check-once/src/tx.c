@@ -24,6 +24,7 @@ void tx_begin() {
   tx.end_timestamp = 0;
   tx.r_count = 0;
   tx.w_count = 0;
+  tx.lock_count = 0;
 }
 
 int tx_read_int(void *addr) {
@@ -51,7 +52,7 @@ int tx_read_int(void *addr) {
 
     return v;
   }
-  return 99;
+  return 0;
   // Abort();
 }
 
@@ -73,17 +74,20 @@ void aquire_locks() {
   for (int i = 0; i < tx.w_count; i++) {
 
     printf("try to aquire lock of write -> %d", tx.writes[i].value);
-    if (try_aquire_lock(tx.writes[i].addr) != 1) {
+    if (try_aquire_lock(tx.writes[i].addr) == 0) {
+      tx.locked_addrs[tx.lock_count] = tx.writes[i].addr;
+      tx.lock_count++;
+    } else {
+
       return; // TODO -> latter abort
     }
   }
 }
 
 void abort() {
-  /*ABORT()
-13 for each addr in locks do
-14 orecs[addr].releaseToPrevious()
-15 restartTransaction()*/
+  for (int i = 0; i < tx.lock_count; i++) {
+    release_lock_no_end(tx.locked_addrs[i]);
+  }
 }
 
 void tx_commit() {
@@ -112,6 +116,7 @@ void validate() {
     uint64_t ts = get_addrs_timestamp(tx.writes[i].addr);
 
     if (ts >= tx.start_timestamp) {
+      printf("Abort");
       break; // TODO -> abort
     }
   }
@@ -119,8 +124,6 @@ void validate() {
 
 void release_locks() {
   for (int i = 0; i < tx.w_count; i++) {
-    printf("\n\nrelease locks: w_count=%d addr=%p value=%d\n", tx.w_count,
-           tx.writes[i].addr, (int)tx.writes[i].value);
     // sleep(15);
     release_lock(tx.end_timestamp, tx.writes[i].addr);
   }

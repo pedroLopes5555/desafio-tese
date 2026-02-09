@@ -31,5 +31,7 @@ typedef struct {
   int r_count;
 
   // locks
+  void *locked_addrs[MAX_WRITES];
+  int lock_count;
 
 } stm_tx_t;

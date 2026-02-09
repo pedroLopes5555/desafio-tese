@@ -160,3 +160,13 @@ void release_lock(uint64_t end, void *addr) {
   uint64_t newvalue = (end & TS_MASK);
   atomic_store_explicit(orecp, newvalue, memory_order_release);
 }
+
+void release_lock_no_end(void *addr) {
+  orec_t *orecp = get_orec_ptr_by_addrs(addr);
+
+  uint64_t current = atomic_load_explicit(orecp, memory_order_relaxed);
+
+  uint64_t newvalue = current & TS_MASK;
+
+  atomic_store_explicit(orecp, newvalue, memory_order_release);
+}

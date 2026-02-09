@@ -26,15 +26,7 @@ static void *main_thread(void *thread_id) {
 
   tx_begin();
 
-  for (int i = 0; i < 10; i++) {
-    int v = tx_read_int(&data[i % 10]);
-    if (v == -1) {
-      printf("ABORT (locked/too new)\n");
-      break;
-    }
-  }
-
-  tx_write(&data[1], 10);
+  tx_write(&data[1], 100);
 
   tx_commit();
 
