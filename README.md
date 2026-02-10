@@ -64,6 +64,11 @@ Vamos então validar a data antes e depois do read, para termos a certeza que n�
 
 
 ### Privatisation Safety
+Existe o conceito de data privada de cada transação, nenhuma transação pode observar um objeto depois de ele ser privatisado
+
+-> Se houver alguma escrita, lock ou privatização concorrente, a leitura tem de abortar
+
+o algoritmo observa a metadata durante toda a leitura (tx_read)
 
 
 
