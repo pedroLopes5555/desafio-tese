@@ -60,12 +60,18 @@ check-once pode aceitar leituras inconsistentes
 
 
 ### Check Twice
+Vamos então validar a data antes e depois do read, para termos a certeza que não é alterada nem antes nem depois do read acabar
 
+
+### Privatisation Safety
 
 
 
 ## Resultados
+-> Resultados muito postivos sem privatisation safety
+-> Resultados positivos sobre privatisation safety no facto de um contador de ciclos de hardware em x86 pode reduzir o overhead de um STM.
 
+portanto sim, contadores de ciclos de hardware podem ser utilizados para reduzir overhead de STM, mas com alguns cuidados como o check twice.
 
 
 
